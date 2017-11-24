@@ -5,74 +5,219 @@
  */
 package chatt;
 
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /**
  *
  * @author AdamEriksson
  */
+interface ObjectStreamListener {
+
+    /**
+     * This method is called whenever an object is received or an exception is
+     * thrown.
+     *
+     * @param number The number of the manager as defined in its constructor
+     * @param object The object received on the stream
+     * @param exception The exception thrown when reading from the stream. Can
+     * be IOException or ClassNotFoundException. One of name and exception will
+     * always be null. In case of an exception the manager and stream are
+     * closed.
+ *
+     */
+    public void objectReceived(int number, Object object, Exception exception);
+}
+
 public class Chatt {
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, ClassNotFoundException {
-       Client myAccount = new Client("130.238.244.43");
-       myAccount.startChatting();
+        Client myAccount = new Client("130.238.245.71");
+        myAccount.startChatting();
     }
-    
+
 }
 
-class Client {
+class Client implements ObjectStreamListener, ActionListener {
+
     Socket clientSocket;
     String serverIP;
     int socketNum = 10000;
+    ObjectOutputStream out;
+    ObjectInputStream in;
+    ObjectStreamManager osm;
     
-    Client(String IP) throws IOException{
-        try{
+    JTextArea chatArea;
+    JTextField messageHandler;
+
+    Client(String IP) throws IOException {
+        try {
             serverIP = IP;
             clientSocket = new Socket(serverIP, socketNum);
-        }
-        
-        catch (IOException e){
+            out = new ObjectOutputStream(clientSocket.getOutputStream());
+            in = new ObjectInputStream(clientSocket.getInputStream());
+            osm = new ObjectStreamManager(1, in, this);
+            components();
+        } catch (IOException e) {
             //System.out.println("Find right IP");
+        } finally {
+            //clientSocket.close();
         }
-        
+
     }
     
-    void startChatting() throws IOException, ClassNotFoundException{
-        if(clientSocket.isConnected()) System.out.println("connect");
-        ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream());
-        //ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
+    void components(){
+        JPanel thePanel = new JPanel();
+        JFrame theFrame = new JFrame();
+        theFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        /*System.out.println((String)in.readObject());
-        out.writeObject("då");*/
-        
-        Scanner temp = new Scanner(System.in);
-        while(true){
-            String inString = (String)in.readObject();
-            System.out.println(inString);
-            
-            //String outString = temp.next();
-            //out.writeObject(outString);
+        chatArea = new JTextArea();
+        messageHandler = new JTextField();
+        chatArea.setEditable(false);
+
+        chatArea.setPreferredSize(new Dimension(300, 300));
+        messageHandler.setPreferredSize(new Dimension(300, 40));
+
+        thePanel.setLayout(new BorderLayout());
+        thePanel.add(chatArea, BorderLayout.NORTH);
+        thePanel.add(messageHandler, BorderLayout.SOUTH);
+        theFrame.add(thePanel);
+        theFrame.pack();
+        theFrame.setVisible(true);
+
+        //ActionListener listener = new sendMessage();
+        messageHandler.addActionListener(this);
+    }
+
+    public void objectReceived(int number, Object object, Exception exception) {
+        String inString = (String) object;
+        chatArea.append("Server: " + inString + "\n");
+    }
+
+    void startChatting() throws IOException, ClassNotFoundException {
+        if (clientSocket.isConnected()) {
+            System.out.println("connect");
+        }
+
+        Scanner soutIn = new Scanner(System.in);
+        while (true) {
+            System.out.println("in");
+            String outString = soutIn.next();
+            out.writeObject(outString);
+
+            System.out.println("skickat");
+
+        }
+
+    }
+    
+    public void actionPerformed(ActionEvent event) {
+            //System.out.println(messageHandler.getText()); 
+        try {
+            String outString = messageHandler.getText();
+            out.writeObject(outString);
+            chatArea.append("Adam: " + outString + "\n");
+            messageHandler.setText("");
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
+        }
             
         }
-        
-        
-    }
-   /*Socket socket = new Socket("130.238.244.43", 10000);
-        if(socket.isConnected()) System.out.println("connect");
-         ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-        System.out.println((String)in.readObject());
-        
-        ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-        out.writeObject("då");
-     
-        out.close();*/
 }
+
+
+class ObjectStreamManager {
+
+    private final ObjectInputStream theStream;
+    private final ObjectStreamListener theListener;
+    private final int theNumber;
+    private volatile boolean stopped = false;
+
+    /**
+     *
+     * This creates and starts a stream manager for a stream. The manager will
+     * continually read from the stream and forward objects through the
+     * objectReceived() method of the ObjectStreamListener parameter
+     *
+     *
+     * @param number The number you give to the manager. It will be included in
+     * all calls to readObject. That way you can have the same callback serving
+     * several managers since for each received object you get the identity of
+     * the manager.
+     * @param stream The stream on which the manager should listen.
+     * @param listener The object that has the callback objectReceived()
+     *
+     *
+     */
+    public ObjectStreamManager(int number, ObjectInputStream stream, ObjectStreamListener listener) {
+        theNumber = number;
+        theStream = stream;
+        theListener = listener;
+        new InnerListener().start();  // start to listen on a new thread.
+    }
+
+    // This private method accepts an object/exception pair and forwards them
+    // to the callback, including also the manager number. The forwarding is scheduled
+    // on the Swing thread through an anonymous inner class.
+    private void callback(final Object object, final Exception exception) {
+        SwingUtilities.invokeLater(
+                new Runnable() {
+            public void run() {
+                if (!stopped) {
+                    theListener.objectReceived(theNumber, object, exception);
+                    if (exception != null) {
+                        closeManager();
+                    }
+                }
+            }
+        });
+    }
+
+    // This is where the actual reading takes place.
+    private class InnerListener extends Thread {
+
+        @Override
+        public void run() {
+            while (!stopped) {                            // as long as no one stopped me
+                try {
+                    callback(theStream.readObject(), null); // read an object and forward it
+                } catch (Exception e) {                 // if Exception then forward it
+                    callback(null, e);
+                }
+            }
+            try {                   // I have been stopped: close stream
+                theStream.close();
+            } catch (IOException e) {
+            }
+
+        }
+    }
+
+    /**
+     * Stop the manager and close the stream.
+     *
+     */
+    public void closeManager() {
+        stopped = true;
+    }
+}      // end of ObjectStreamManager
+
 
