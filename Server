@@ -1,0 +1,62 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package chattserver;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.Scanner;
+
+/**
+ *
+ * @author olive_000
+ */
+public class ChattServer {
+
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+        Server myServer = new Server();
+        myServer.startChatting();
+       // myServer.mySocket.close();
+    }
+}
+    class Server {
+        ServerSocket serverSocket;
+        Socket mySocket;
+        int socketNum = 10011;
+        
+        Server() throws IOException {
+            try {
+                serverSocket = new ServerSocket(socketNum); 
+                mySocket = serverSocket.accept();
+            }
+            catch (IOException e) {    
+            
+            }
+        
+        }
+        
+        void startChatting() throws IOException, ClassNotFoundException {
+            if(mySocket.isConnected()) System.out.println("connected");
+            
+            ObjectInputStream in = new ObjectInputStream(mySocket.getInputStream());    
+            ObjectOutputStream out = new ObjectOutputStream(mySocket.getOutputStream());
+            Scanner temp = new Scanner(System.in);
+           
+        while (true) {
+            //out.flush();
+            String inString = (String)in.readObject();
+            System.out.println(inString);
+            
+            String outString = temp.next();
+            out.writeObject(outString);
+           // out.flush();
+            }
+        }
+           // out.close();
+    }
+    
