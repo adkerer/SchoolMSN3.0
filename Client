@@ -6,7 +6,11 @@
 package chatt;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -17,7 +21,11 @@ import java.net.Socket;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.layout.Border;
+import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -39,7 +47,7 @@ interface ObjectStreamListener {
      * be IOException or ClassNotFoundException. One of name and exception will
      * always be null. In case of an exception the manager and stream are
      * closed.
- *
+     *
      */
     public void objectReceived(int number, Object object, Exception exception);
 }
@@ -50,8 +58,8 @@ public class Chatt {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, ClassNotFoundException {
-        Client myAccount = new Client("130.238.245.71");
-        myAccount.startChatting();
+        Client myAccount = new Client("130.238.252.149");
+        //myAccount.startChatting();
     }
 
 }
@@ -64,41 +72,82 @@ class Client implements ObjectStreamListener, ActionListener {
     ObjectOutputStream out;
     ObjectInputStream in;
     ObjectStreamManager osm;
-    
+
+    JFrame theFrame;
     JTextArea chatArea;
     JTextField messageHandler;
+    JTextArea connectedArea;
+    JButton exitButton;
+    
+    final String exitMessage = new String("f8 1c 9f db 47 3e cd 22 70 23 0b 53 55 da 0f 9c");
 
-    Client(String IP) throws IOException {
+    Client(String IP) throws IOException, ClassNotFoundException {
         try {
             serverIP = IP;
             clientSocket = new Socket(serverIP, socketNum);
             out = new ObjectOutputStream(clientSocket.getOutputStream());
             in = new ObjectInputStream(clientSocket.getInputStream());
             osm = new ObjectStreamManager(1, in, this);
-            components();
+            this.components();
+            this.startChatting();
         } catch (IOException e) {
+            //System.out.println("Find right IP");
+        } catch (ClassNotFoundException e) {
             //System.out.println("Find right IP");
         } finally {
             //clientSocket.close();
+            out.close();
+            in.close();
+            osm.closeManager();
+            this.clientSocket.close();
         }
 
     }
-    
-    void components(){
-        JPanel thePanel = new JPanel();
-        JFrame theFrame = new JFrame();
+
+    void components() {
+        theFrame = new JFrame();
         theFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
+        JPanel thePanel = new JPanel();
+        thePanel.setLayout(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+
         chatArea = new JTextArea();
-        messageHandler = new JTextField();
         chatArea.setEditable(false);
+        connectedArea = new JTextArea();
+        connectedArea.setEditable(false);
+        messageHandler = new JTextField();
+
+        exitButton = new JButton();
+        exitButton.setActionCommand("button");
+        exitButton.setText("Exit");
+        exitButton.addActionListener(this);
 
         chatArea.setPreferredSize(new Dimension(300, 300));
+        connectedArea.setPreferredSize(new Dimension(100, 300));
+        connectedArea.setBackground(Color.LIGHT_GRAY);
         messageHandler.setPreferredSize(new Dimension(300, 40));
+        exitButton.setPreferredSize(new Dimension(100, 40));
 
-        thePanel.setLayout(new BorderLayout());
-        thePanel.add(chatArea, BorderLayout.NORTH);
-        thePanel.add(messageHandler, BorderLayout.SOUTH);
+        c.fill = GridBagConstraints.NORTHWEST;
+        c.gridx = 0;
+        c.gridy = 0;
+        thePanel.add(chatArea, c);
+
+        c.fill = GridBagConstraints.NORTHEAST;
+        c.gridx = 1;
+        c.gridy = 0;
+        thePanel.add(connectedArea, c);
+
+        c.fill = GridBagConstraints.SOUTHWEST;
+        c.gridx = 0;
+        c.gridy = 1;
+        thePanel.add(messageHandler, c);
+
+        c.fill = GridBagConstraints.SOUTHEAST;
+        c.gridx = 1;
+        c.gridy = 1;
+        thePanel.add(exitButton, c);
+
         theFrame.add(thePanel);
         theFrame.pack();
         theFrame.setVisible(true);
@@ -108,13 +157,41 @@ class Client implements ObjectStreamListener, ActionListener {
     }
 
     public void objectReceived(int number, Object object, Exception exception) {
-        String inString = (String) object;
-        chatArea.append("Server: " + inString + "\n");
+        if(object != null){
+            String inString = (String) object;
+            if (inString.equals(exitMessage)){
+                JOptionPane.showMessageDialog(theFrame, "Oliver lämnade", "Title", JOptionPane.INFORMATION_MESSAGE);
+                System.exit(0);
+            }
+            chatArea.append("Server: " + inString + "\n");
+        }
+     
+    }
+
+    public void actionPerformed(ActionEvent event) {
+        //System.out.println(messageHandler.getText()); 
+        try {
+            if (event.getActionCommand().equalsIgnoreCase("button")) {
+                //button    
+                out.writeObject(exitMessage);
+                System.exit(0);
+            } else {
+                //messageHandler
+                String outString = messageHandler.getText();
+                out.writeObject(outString);
+                chatArea.append("Adam: " + outString + "\n");
+                messageHandler.setText("");
+            }
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
+        }
+
     }
 
     void startChatting() throws IOException, ClassNotFoundException {
         if (clientSocket.isConnected()) {
             System.out.println("connect");
+            this.connectedArea.setText("Oliver\nAdam");
         }
 
         Scanner soutIn = new Scanner(System.in);
@@ -128,21 +205,8 @@ class Client implements ObjectStreamListener, ActionListener {
         }
 
     }
-    
-    public void actionPerformed(ActionEvent event) {
-            //System.out.println(messageHandler.getText()); 
-        try {
-            String outString = messageHandler.getText();
-            out.writeObject(outString);
-            chatArea.append("Adam: " + outString + "\n");
-            messageHandler.setText("");
-        } catch (IOException ex) {
-            System.out.println(ex.getMessage());
-        }
-            
-        }
-}
 
+}
 
 class ObjectStreamManager {
 
@@ -219,5 +283,3 @@ class ObjectStreamManager {
         stopped = true;
     }
 }      // end of ObjectStreamManager
-
-
