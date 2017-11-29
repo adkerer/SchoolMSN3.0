@@ -65,7 +65,7 @@ public class Chatt {
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         ContactSelection contactSelection = new ContactSelection();
         //Client myAccount = new Client(contactSelection.getContact());
-        
+
         //myAccount.startChatting();
     }
 
@@ -85,24 +85,25 @@ class Client implements ObjectStreamListener, ActionListener {
     JTextField messageHandler;
     JTextArea connectedArea;
     JButton exitButton;
-    
+
     String[] connectContact;
-    
+
     final String exitMessage = new String("f8 1c 9f db 47 3e cd 22 70 23 0b 53 55 da 0f 9c");
 
     Client(String[] ourContact) throws IOException, ClassNotFoundException {
         try {
-            
+
             connectContact = ourContact;
-            
+
             serverIP = connectContact[1];
             socketNum = Integer.parseInt(connectContact[2]);
             clientSocket = new Socket(serverIP, socketNum);
             System.out.println("1");
+            
+            
             outStream = new ObjectOutputStream(clientSocket.getOutputStream());
             inStream = new ObjectInputStream(clientSocket.getInputStream());
             osm = new ObjectStreamManager(1, inStream, this);
-            
             this.components();
             System.out.println("2");
             this.startChatting();
@@ -114,17 +115,15 @@ class Client implements ObjectStreamListener, ActionListener {
             System.out.println("Class");
             //System.out.println("Find right IP");
         } finally {
-            //clientSocket.close();
-            outStream.close();
+            
+           /* outStream.close();
             inStream.close();
             osm.closeManager();
-            this.clientSocket.close();
+            this.clientSocket.close();*/
         }
 
     }
 //ta ut och kolla i annat program
-
-    
 
     void components() {
         theFrame = new JFrame();
@@ -197,22 +196,24 @@ class Client implements ObjectStreamListener, ActionListener {
                 //button    
                 outStream.writeObject(exitMessage);
                 System.exit(0);
-            } 
-            
-            else {
+            } else {
                 //messageHandler
+
                 String outString = messageHandler.getText();
                 outStream.writeObject(outString);
                 chatArea.append("Adam: " + outString + "\n");
                 messageHandler.setText("");
+
             }
         } catch (IOException ex) {
+            System.out.println("IO");
             System.out.println(ex.getMessage());
+        }
+        finally{
+            //clientSocket.close();
         }
 
     }
-    
-    
 
     void startChatting() throws IOException, ClassNotFoundException {
         if (clientSocket.isConnected()) {
@@ -220,16 +221,15 @@ class Client implements ObjectStreamListener, ActionListener {
             this.connectedArea.setText("Oliver\nAdam");
         }
 
-        Scanner soutIn = new Scanner(System.in);
+        /*Scanner soutIn = new Scanner(System.in);
         while (true) {
-            System.out.println("in");
+           System.out.println("in");
             String outString = soutIn.next();
             outStream.writeObject(outString);
 
             System.out.println("skickat");
 
-        }
-
+        }*/
     }
 
 }
@@ -310,114 +310,111 @@ class ObjectStreamManager {
     }
 }      // end of ObjectStreamManager
 
-class ContactSelection implements ActionListener{
+class ContactSelection implements ActionListener {
+
     String[] contact;
-    
+
     ArrayList allContacts;
     String[] connectedContact;
     JFrame popUpFrame;
     JComboBox nameList;
     int contactIndex;
-   
-    
+
     Client myChat;
-    
-    ContactSelection() throws IOException{
-        
+
+    ContactSelection() throws IOException {
+
         favoriteContact();
-        
-      
+
     }
-    
+
     void favoriteContact() throws FileNotFoundException, IOException {
-            
-            File inputFile = new File("contacts.txt");
-            Scanner reader = new Scanner(inputFile);
 
-            allContacts = new ArrayList();
+        File inputFile = new File("contacts.txt");
+        Scanner reader = new Scanner(inputFile);
 
-            while (reader.hasNext()) {
-                String contactLine = reader.nextLine();
-                String[] contact = contactLine.split(" ");
-                allContacts.add(contact);
+        allContacts = new ArrayList();
+
+        while (reader.hasNext()) {
+            String contactLine = reader.nextLine();
+            String[] contact = contactLine.split(" ");
+            allContacts.add(contact);
+        }
+
+        String[] nameStrings = new String[allContacts.size() + 1];
+        for (int i = 0; i < nameStrings.length; i++) {
+            if (i + 1 == nameStrings.length) {
+                nameStrings[i] = "New Contact";
+            } else {
+                nameStrings[i] = ((String[]) allContacts.get(i))[0];
             }
 
-            String[] nameStrings = new String[allContacts.size() + 1];
-            for (int i = 0; i < nameStrings.length; i++) {
-                if (i + 1 == nameStrings.length) {
-                    nameStrings[i] = "New Contact";
-                } else {
-                    nameStrings[i] = ((String[]) allContacts.get(i))[0];
-                }
+        }
+        popUpFrame = new JFrame();
+        popUpFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        nameList = new JComboBox(nameStrings);
+        JButton selectContact = new JButton("Select Contact");
+        selectContact.addActionListener(this);
+        selectContact.setActionCommand("selectContact");
 
-            }
-            popUpFrame = new JFrame();
-            popUpFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            nameList = new JComboBox(nameStrings);
-            JButton selectContact = new JButton("Select Contact");
-            selectContact.addActionListener(this);
-            selectContact.setActionCommand("selectContact");
-            
-            popUpFrame.add(nameList, BorderLayout.NORTH);
-            popUpFrame.add(selectContact, BorderLayout.CENTER);
-            popUpFrame.pack();
-            popUpFrame.setVisible(true);
-            
-        
+        popUpFrame.add(nameList, BorderLayout.NORTH);
+        popUpFrame.add(selectContact, BorderLayout.CENTER);
+        popUpFrame.pack();
+        popUpFrame.setVisible(true);
+
     }
-    
-    void selectContact() throws IOException, ClassNotFoundException{
-        Scanner inContact = new Scanner(System.in);
-            if (contactIndex == allContacts.size()) {
-                //System.out.println("new contact");
-                String newContactInfo = "";
-                //System.out.println("Name:");
-                newContactInfo = newContactInfo + inContact.next() + " ";
-                //System.out.println("IP:");
-                newContactInfo = newContactInfo + inContact.next() + " ";
-                //System.out.println("Socket");
-                newContactInfo = newContactInfo + inContact.next() + " ";
-                PrintWriter writeText = new PrintWriter("contacts.txt");
-                for (int i = 0; i < allContacts.size(); i++) {
-                    String aLine = "";
-                    for (int j = 0; j < ((String[]) allContacts.get(i)).length; j++) {
-                        aLine = aLine + ((String[]) allContacts.get(i))[j] + " ";
-                    }
-                    writeText.println(aLine);
-                }
-                writeText.println(newContactInfo);
-                writeText.close();
-                favoriteContact();
-        
 
-            } else  {
-                contact = (String[]) allContacts.get(contactIndex);
-                System.out.println(contact[0]);
-                myChat = new Client(contact);
-                // inLoop = false;
-                
-                /*System.out.println("går in i else");
+    void selectContact() throws IOException, ClassNotFoundException {
+        Scanner inContact = new Scanner(System.in);
+        if (contactIndex == allContacts.size()) {
+            //System.out.println("new contact");
+            String newContactInfo = "";
+            //System.out.println("Name:");
+            newContactInfo = newContactInfo + inContact.next() + " ";
+            //System.out.println("IP:");
+            newContactInfo = newContactInfo + inContact.next() + " ";
+            //System.out.println("Socket");
+            newContactInfo = newContactInfo + inContact.next() + " ";
+            PrintWriter writeText = new PrintWriter("contacts.txt");
+            for (int i = 0; i < allContacts.size(); i++) {
+                String aLine = "";
+                for (int j = 0; j < ((String[]) allContacts.get(i)).length; j++) {
+                    aLine = aLine + ((String[]) allContacts.get(i))[j] + " ";
+                }
+                writeText.println(aLine);
+            }
+            writeText.println(newContactInfo);
+            writeText.close();
+            favoriteContact();
+
+        } else {
+            contact = (String[]) allContacts.get(contactIndex);
+            System.out.println(contact[0]);
+            //popUpFrame.dispose();
+            myChat = new Client(contact);
+            // inLoop = false;
+
+            /*System.out.println("går in i else");
                 serverIP = connectedContact[1];
                 clientSocket = new Socket(serverIP, Integer.parseInt(connectedContact[2]));*/
-            }
+        }
 
-           
     }
-
 
     public void actionPerformed(ActionEvent e) {
         contactIndex = this.nameList.getSelectedIndex();
         try {
+            popUpFrame.dispose();
             selectContact();
-            
+
         } catch (IOException ex) {
-   
+
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(ContactSelection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
-    String[] getContact(){
+
+    String[] getContact() {
         return this.contact;
     }
 }
